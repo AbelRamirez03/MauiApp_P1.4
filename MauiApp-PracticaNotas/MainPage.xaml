@@ -1,52 +1,178 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MauiApp_PracticaNotas"
              x:Class="MauiApp_PracticaNotas.MainPage">
 
-    <ScrollView>
-        <VerticalStackLayout Spacing="20" Padding="30">
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="15">
 
-            <Label Text="Mis Notas Rápidas"
-                   FontSize="24"
-                   FontAttributes="Bold"
-                   HorizontalOptions="Center" />
+                <Grid Margin="0,10,0,20">
+                    <Button x:Name="MenuButton"
+                            Text="☰"
+                            FontSize="24"
+                            BackgroundColor="Transparent"
+                            TextColor="#2C3E50"
+                            WidthRequest="50"
+                            HeightRequest="50"
+                            HorizontalOptions="Start"
+                            Clicked="OnMenuClicked"/>
 
-            <Frame BorderColor="Gray" CornerRadius="10" Padding="10">
-                <VerticalStackLayout Spacing="15">
+                    <Label Text="Crear Nueva Nota" 
+                           FontSize="22" 
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           TextColor="#2C3E50"/>
+                </Grid>
 
-                    <Label Text="Actividad:" FontSize="14" TextColor="Gray"/>
-                    <Entry x:Name="ActivityEntry"
-                           Placeholder="Ej. Comprar leche"
-                           ClearButtonVisibility="WhileEditing" />
+                <Frame BorderColor="#3498DB" 
+                       CornerRadius="10" 
+                       Padding="15"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Actividad" 
+                               FontAttributes="Bold" 
+                               TextColor="#2C3E50"/>
 
-                    <HorizontalStackLayout Spacing="10">
-                        <CheckBox x:Name="UrgentCheckBox" />
-                        <Label Text="¿Es urgente?" 
-                               VerticalOptions="Center" />
-                    </HorizontalStackLayout>
+                        <Entry x:Name="ActivityEntry" 
+                               Placeholder="Escribe tu actividad aquí..."
+                               PlaceholderColor="#95A5A6"
+                               TextColor="#2C3E50"/>
 
-                </VerticalStackLayout>
-            </Frame>
+                        <HorizontalStackLayout Spacing="10">
+                            <CheckBox x:Name="UrgentCheckBox" 
+                                      Color="#E74C3C"/>
+                            <Label Text="Marcar como urgente" 
+                                   VerticalOptions="Center"
+                                   TextColor="#2C3E50"/>
+                        </HorizontalStackLayout>
 
-            <Button Text="Guardar Estado"
-                    Clicked="OnSaveClicked"
-                    BackgroundColor="#512BD4"
-                    TextColor="White"
-                    CornerRadius="20" />
+                        <Button Text="💾 Guardar Nota" 
+                                BackgroundColor="#3498DB"
+                                TextColor="White"
+                                Clicked="OnSaveClicked"
+                                CornerRadius="8"
+                                Margin="0,10,0,0"/>
+                    </VerticalStackLayout>
+                </Frame>
 
-            <BoxView HeightRequest="1" Color="LightGray" Margin="0,10"/>
+                <Label Text="Notas Guardadas" 
+                       FontSize="18" 
+                       FontAttributes="Bold"
+                       Margin="0,20,0,10"
+                       TextColor="#2C3E50"/>
 
-            <VerticalStackLayout>
-                <Label Text="Información Almacenada:" FontAttributes="Bold" />
+                <CollectionView x:Name="NotesCollectionView" 
+                                ItemsSource="{Binding}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Margin="0,5" 
+                                   Padding="15" 
+                                   CornerRadius="8"
+                                   HasShadow="True">
+                                <Frame.BackgroundColor>
+                                    <Binding Path="IsUrgent">
+                                        <Binding.Converter>
+                                            <local:UrgentColorConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </Frame.BackgroundColor>
 
-                <Label x:Name="StoredInfoLabel" 
-                       Text="No hay datos guardados aún."
-                       FontSize="16"
-                       TextColor="#333333"
-                       Margin="0,10,0,0" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="5">
+                                        <Label Text="{Binding Activity}" 
+                                               FontSize="16"
+                                               TextColor="White"
+                                               FontAttributes="Bold"/>
+
+                                        <Label TextColor="#ECF0F1" FontSize="12">
+                                            <Label.FormattedText>
+                                                <FormattedString>
+                                                    <Span Text="Prioridad: "/>
+                                                    <Span Text="{Binding IsUrgent, Converter={local:UrgentTextConverter}}"
+                                                          FontAttributes="Bold"/>
+                                                </FormattedString>
+                                            </Label.FormattedText>
+                                        </Label>
+
+                                        <Label Text="{Binding CreatedDate, StringFormat='{0:dd/MM/yyyy HH:mm}'}" 
+                                               FontSize="10"
+                                               TextColor="#BDC3C7"/>
+                                    </VerticalStackLayout>
+
+                                    <Button Grid.Column="1"
+                                            Text="🗑️"
+                                            FontSize="20"
+                                            BackgroundColor="Transparent"
+                                            TextColor="White"
+                                            Clicked="OnDeleteNoteClicked"
+                                            CommandParameter="{Binding Id}"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label x:Name="EmptyLabel"
+                       Text="No hay notas guardadas"
+                       HorizontalOptions="Center"
+                       TextColor="#95A5A6"
+                       FontSize="14"
+                       Margin="0,20"
+                       IsVisible="False"/>
             </VerticalStackLayout>
+        </ScrollView>
 
-        </VerticalStackLayout>
-    </ScrollView>
+        <BoxView x:Name="Overlay" 
+                 Color="Black" 
+                 Opacity="0" 
+                 IsVisible="False"
+                 InputTransparent="True">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnOverlayTapped"/>
+            </BoxView.GestureRecognizers>
+        </BoxView>
 
+        <Grid x:Name="SideMenu" 
+              WidthRequest="250" 
+              BackgroundColor="#2C3E50"
+              HorizontalOptions="Start"
+              TranslationX="-250">
+
+            <VerticalStackLayout Padding="20" Spacing="15">
+                <Label Text="MENÚ" 
+                       TextColor="White" 
+                       FontSize="24" 
+                       FontAttributes="Bold"
+                       Margin="0,20,0,30"/>
+
+                <Button Text="📝 Notas Activas" 
+                        BackgroundColor="#34495E"
+                        TextColor="White"
+                        Clicked="OnActiveNotesClicked"
+                        CornerRadius="8"/>
+
+                <Button Text="🗑️ Papelera" 
+                        BackgroundColor="#34495E"
+                        TextColor="White"
+                        Clicked="OnTrashClicked"
+                        CornerRadius="8"/>
+
+                <BoxView HeightRequest="1" 
+                         BackgroundColor="#7F8C8D" 
+                         Margin="0,20"/>
+
+                <Label Text="Acerca de" 
+                       TextColor="#BDC3C7" 
+                       FontSize="12"
+                       Margin="0,10,0,5"/>
+
+                <Label Text="App de Notas v1.0" 
+                       TextColor="#95A5A6" 
+                       FontSize="10"/>
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
 </ContentPage>

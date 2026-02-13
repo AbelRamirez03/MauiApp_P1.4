@@ -1,53 +1,175 @@
-﻿namespace MauiApp_PracticaNotas; // <--- OJO: Verifica que este sea el nombre correcto
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using MauiApp_PracticaNotas.Models;
+using MauiApp_PracticaNotas.Services;
 
-public partial class MainPage : ContentPage
+namespace MauiApp_PracticaNotas
 {
-    const string KeyActivity = "saved_activity";
-    const string KeyIsUrgent = "saved_urgent";
-
-    public MainPage()
+    public partial class MainPage : ContentPage
     {
-        InitializeComponent();
-    }
+        private bool isMenuOpen = false;
 
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
-        LoadState();
-    }
-
-    // Agregamos 'async' aquí para corregir la advertencia del DisplayAlert
-    private async void OnSaveClicked(object sender, EventArgs e)
-    {
-        string activity = ActivityEntry.Text;
-        bool isUrgent = UrgentCheckBox.IsChecked;
-
-        Preferences.Set(KeyActivity, activity);
-        Preferences.Set(KeyIsUrgent, isUrgent);
-
-        DisplayStoredInfo(activity, isUrgent);
-
-        // Usamos 'await' para mostrar la alerta correctamente
-        await DisplayAlert("Éxito", "Estado guardado correctamente", "OK");
-    }
-
-    private void LoadState()
-    {
-        if (Preferences.ContainsKey(KeyActivity))
+        public MainPage()
         {
-            string savedActivity = Preferences.Get(KeyActivity, string.Empty);
-            bool savedUrgent = Preferences.Get(KeyIsUrgent, false);
+            InitializeComponent();
+        }
 
-            ActivityEntry.Text = savedActivity;
-            UrgentCheckBox.IsChecked = savedUrgent;
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            LoadNotes();
+        }
 
-            DisplayStoredInfo(savedActivity, savedUrgent);
+        private async void OnSaveClicked(object sender, EventArgs e)
+        {
+            string activity = ActivityEntry.Text;
+
+            if (string.IsNullOrWhiteSpace(activity))
+            {
+                await DisplayAlert("Error", "Por favor escribe una actividad", "OK");
+                return;
+            }
+
+            bool isUrgent = UrgentCheckBox.IsChecked;
+
+            var note = new Note
+            {
+                Activity = activity,
+                IsUrgent = isUrgent
+            };
+
+            NotesService.Instance.AddOrUpdateNote(note);
+
+            // Limpiar campos
+            ActivityEntry.Text = string.Empty;
+            UrgentCheckBox.IsChecked = false;
+
+            await DisplayAlert("Éxito", "Nota guardada correctamente", "OK");
+
+            LoadNotes();
+        }
+
+        private void LoadNotes()
+        {
+            var activeNotes = NotesService.Instance.GetActiveNotes();
+            NotesCollectionView.ItemsSource = activeNotes;
+            EmptyLabel.IsVisible = !activeNotes.Any();
+        }
+
+        private async void OnDeleteNoteClicked(object sender, EventArgs e)
+        {
+            var button = sender as Button;
+            var noteId = button?.CommandParameter as string;
+
+            if (noteId == null) return;
+
+            bool confirm = await DisplayAlert(
+                "Eliminar Nota",
+                "¿Deseas mover esta nota a la papelera?",
+                "Sí",
+                "No");
+
+            if (confirm)
+            {
+                NotesService.Instance.MoveToTrash(noteId);
+                LoadNotes();
+                await DisplayAlert("Éxito", "Nota movida a la papelera", "OK");
+            }
+        }
+
+        private async void OnMenuClicked(object sender, EventArgs e)
+        {
+            if (isMenuOpen)
+            {
+                await CloseMenu();
+            }
+            else
+            {
+                await OpenMenu();
+            }
+        }
+
+        private async Task OpenMenu()
+        {
+            isMenuOpen = true;
+            Overlay.IsVisible = true;
+            Overlay.InputTransparent = false;
+
+            var tasks = new List<Task>
+            {
+                SideMenu.TranslateTo(0, 0, 250, Easing.CubicOut),
+                Overlay.FadeTo(0.5, 250)
+            };
+
+            await Task.WhenAll(tasks);
+        }
+
+        private async Task CloseMenu()
+        {
+            isMenuOpen = false;
+
+            var tasks = new List<Task>
+            {
+                SideMenu.TranslateTo(-250, 0, 250, Easing.CubicIn),
+                Overlay.FadeTo(0, 250)
+            };
+
+            await Task.WhenAll(tasks);
+
+            Overlay.IsVisible = false;
+            Overlay.InputTransparent = true;
+        }
+
+        private async void OnOverlayTapped(object sender, EventArgs e)
+        {
+            await CloseMenu();
+        }
+
+        private async void OnActiveNotesClicked(object sender, EventArgs e)
+        {
+            await CloseMenu();
+            // Ya estamos en la página principal
+        }
+
+        private async void OnTrashClicked(object sender, EventArgs e)
+        {
+            await CloseMenu();
+            await Navigation.PushAsync(new TrashPage());
         }
     }
 
-    private void DisplayStoredInfo(string act, bool urg)
+    // Convertidor para el color de fondo según urgencia
+    public class UrgentColorConverter : IValueConverter
     {
-        string status = urg ? "URGENTE" : "Normal";
-        StoredInfoLabel.Text = $"Actividad: {act}\nPrioridad: {status}";
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool isUrgent)
+            {
+                return isUrgent ? Color.FromArgb("#E74C3C") : Color.FromArgb("#3498DB");
+            }
+            return Color.FromArgb("#3498DB");
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    // Convertidor para el texto de urgencia
+    public class UrgentTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool isUrgent)
+            {
+                return isUrgent ? "URGENTE" : "Normal";
+            }
+            return "Normal";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
